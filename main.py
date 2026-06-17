@@ -1,4 +1,5 @@
 import sys, math
+from symboltable import SymbolTable
 
 class Parser:
     def __init__(self, filename):
@@ -164,15 +165,44 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     parser = Parser(filename)
     code = Code()
+    table = SymbolTable()
     print(parser.lines)
+
+    # Pass 1: go through labels and record the ROM for them
+    rom = 0
+    for l in parser.lines: 
+        t = parser.instruction_type(l)
+        if t == "L":
+            s = parser.symbol(l)
+            table.add_entry(s, rom)
+        
+        else:
+            rom += 1
+                
+    # Pass 2: go through A & C instructions , allocate for RAM, conversion 
+    output = [] 
+    next_ram = 16
     for l in parser.lines:
         t = parser.instruction_type(l)
 
-        if t == "A" or t == "L":
+        if t == "A": 
             s = parser.symbol(l)
 #            print(s)
-            res = code.bin_address(int(s))
-            print(res)
+            # vanila A-instrucction
+            if s.isdigit(): 
+                res = code.bin_address(int(s))
+                #print(res)
+                output.append(res)
+
+            else: 
+                if not table.contains(s): 
+                    table.add_entry(s, next_ram)
+                    next_ram += 1
+                addr = table.get_address(s)
+                res = code.bin_address(int(addr))
+                print(res)
+                output.append(res)
+
         elif t == "C":
             d = parser.dest(l)
             c = parser.comp(l)
@@ -182,6 +212,13 @@ if __name__ == "__main__":
             cc = code.comp(c)
             jj = code.jump(j)
             print("111" + cc + dd + jj)
+            output.append("111" + cc + dd + jj)
+
+    with open(filename.replace(".asm", ".hack"), 'w') as f: 
+        f.write("\n".join(output))
+        print("writing completed")
+ 
+
 
 # for line in Parser.lines:
 #   check instruction type (Parser)
